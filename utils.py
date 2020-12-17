@@ -1,8 +1,5 @@
 import os
-import numpy as np
 import tensorflow as tf
-from matplotlib import pyplot as plt
-from PIL import Image
 
 
 def create_dir(dir):
@@ -15,15 +12,6 @@ def create_dir(dir):
         print(f'Directory {dir} already exists')  
 
     return dir
-
-
-def imsave(image, file_name):
-    """ Save the image.
-    """
-    image = (image + 1) * 127.5
-    image = tf.clip_by_value(image, clip_value_min=0.0, clip_value_max=255.0)
-    image = Image.fromarray(np.array(image).astype(np.uint8).squeeze())
-    image.save(file_name)
 
 
 def load_image(image_file, image_size=None):
