@@ -1,6 +1,8 @@
 # CUT
 This is an implementation of [Contrastive Learning for Unpaired Image-to-Image Translation](https://arxiv.org/abs/2007.15651) in Tensorflow 2.
 
+Contrastive Unpaired Translation(CUT) using a framework based on contrastive learning, the goal is to associate the input and output patches, "query" refers to an output patch, positive and negatives are corresponding and noncorresponding input patches. Compared to CycleGAN, CUT enables one-sided translation, while improving quality and reducing training time.
+
 <div align = 'center'>
   <img src = 'images/CUT.PNG' height = '360px'>
 </div>
