@@ -1,5 +1,7 @@
-# CUT
+# Contrastive Unpaired Translation (CUT)
 This is an implementation of [Contrastive Learning for Unpaired Image-to-Image Translation](https://arxiv.org/abs/2007.15651) in Tensorflow 2.
+
+Contrastive Unpaired Translation(CUT) using a framework based on contrastive learning, the goal is to associate the input and output patches, "query" refers to an output patch, positive and negatives are corresponding and noncorresponding input patches. Compared to CycleGAN, CUT enables one-sided translation, while improving quality and reducing training time.
 
 <div align = 'center'>
   <img src = 'images/CUT.PNG' height = '360px'>
@@ -56,6 +58,6 @@ You will need the following to run the above:
   - Please refer to the Requirements section of [stylegan2 project](https://github.com/NVlabs/stylegan2).
 
 ## Attributions/Thanks
-- The code is developed based on [Keras-CycleGAN](https://keras.io/examples/generative/cyclegan/).
+- The code is developed based on [official-pytorch-implementation](https://github.com/taesungp/contrastive-unpaired-translation) and [Keras-CycleGAN](https://keras.io/examples/generative/cyclegan/).
 - The training datasets are from [taesung_park/CycleGAN/datasets](https://people.eecs.berkeley.edu/~taesung_park/CycleGAN/datasets/).
 - The cuda implementations are from [stylegan2 project](https://github.com/NVlabs/stylegan2).
