@@ -15,14 +15,14 @@ class GANLoss:
             self.loss = None
         else:
             raise NotImplementedError(f'gan mode {gan_mode} not implemented.')
-        
+
     def __call__(self, prediction, target_is_real):
 
         if self.gan_mode == 'lsgan':
             if target_is_real:
-                loss = self.loss(prediction, tf.ones_like(prediction))
+                loss = self.loss(tf.ones_like(prediction), prediction)
             else:
-                loss = self.loss(prediction, tf.zeros_like(prediction))
+                loss = self.loss(tf.zeros_like(prediction), prediction)
 
         elif self.gan_mode == 'nonsaturating':
             if target_is_real:
@@ -57,23 +57,14 @@ class PatchNCELoss:
         total_nce_loss = 0.0
         for feat_s, feat_t in zip(feat_source_pool, feat_target_pool):
             n_patches, dim = feat_s.shape
-            
-            # pos logit
-            l_pos = tf.matmul(tf.reshape(feat_s, (n_patches, 1, -1)), tf.reshape(feat_t, (n_patches, -1, 1)))
-            l_pos = tf.squeeze(l_pos, 1)
 
-            # neg logit
-            l_neg = tf.matmul(feat_s, tf.transpose(feat_t))
- 
-            # diagonal entries are similarity between same features, and hence meaningless.
-            # just fill the diagonal with very small number, which is exp(-10) and almost zero
+            logit = tf.matmul(feat_s, tf.transpose(feat_t)) / self.nce_temp
+
+            # Diagonal entries are pos logits, the others are neg logits.
             diagonal = tf.eye(n_patches, dtype=tf.bool)
-            l_neg = tf.where(diagonal, tf.math.exp(-10.0), l_neg)
+            target = tf.where(diagonal, 1.0, 0.0)
 
-            out = tf.concat([l_pos, l_neg], axis=1) / self.nce_temp
-            target = tf.concat([tf.ones_like(l_pos), tf.zeros_like(l_neg)], axis=1)
-
-            loss = self.cross_entropy_loss(target, out) * self.nce_lambda
+            loss = self.cross_entropy_loss(target, logit) * self.nce_lambda
             total_nce_loss += tf.reduce_mean(loss)
 
         return total_nce_loss / len(feat_source_pool)
