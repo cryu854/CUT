@@ -36,7 +36,8 @@ def main(args):
     # Load input images
     input_images = tf.data.Dataset.list_files([args.input+'/*.jpg', args.input+'/*.png'])
     input_images = (
-        input_images.map(load_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        input_images.map(lambda x: load_image(x, image_size=None, data_augmentation=False), 
+                         num_parallel_calls=tf.data.experimental.AUTOTUNE)
         .batch(1)
         .prefetch(tf.data.experimental.AUTOTUNE)
     )
