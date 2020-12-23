@@ -1,26 +1,21 @@
 """ Implement the following layers that used in CUT/FastCUT model.
 Padding2D
 InstanceNorm
-L2Normalize
 AntialiasSampling
 ConvBlock
+ConvTransposeBlock
 ResBlock
 """
 
 import tensorflow as tf
 import numpy as np
 
-from tensorflow.keras.layers import Layer, Conv2D, Activation, BatchNormalization, Lambda
+from tensorflow.keras.layers import Layer, Conv2D, Conv2DTranspose, BatchNormalization, Activation
 from modules.ops.upfirdn_2d import upsample_2d, downsample_2d
 
 
 class Padding2D(Layer):
     """ 2D padding layer.
-    Args:
-        padding(tuple): Amount of padding for the
-        spatial dimensions.
-    Returns:
-        A padded tensor with the same type as the input tensor.
     """
     def __init__(self, padding=(1, 1), pad_type='constant', **kwargs):
         assert pad_type in ['constant', 'reflect', 'symmetric']
@@ -43,8 +38,7 @@ class Padding2D(Layer):
 class InstanceNorm(tf.keras.layers.Layer):
     """ Instance Normalization layer (https://arxiv.org/abs/1607.08022).
     """
-    
-    def __init__(self, epsilon=1e-5, affine=True, **kwargs):
+    def __init__(self, epsilon=1e-5, affine=False, **kwargs):
         super(InstanceNorm, self).__init__(**kwargs)
         self.epsilon = epsilon
         self.affine = affine
@@ -59,28 +53,14 @@ class InstanceNorm(tf.keras.layers.Layer):
                                         shape=(input_shape[-1],),
                                         initializer=tf.zeros_initializer(),
                                         trainable=True)
-        else:
-            self.gamma = tf.ones_like(input_shape[-1], dtype=tf.float32)
-            self.beta = tf.zeros_like(input_shape[-1], dtype=tf.float32)
 
     def call(self, inputs, training=None):
         mean, var = tf.nn.moments(inputs, axes=[1, 2], keepdims=True)
         x = tf.divide(tf.subtract(inputs, mean), tf.math.sqrt(tf.add(var, self.epsilon)))
 
-        return self.gamma * x + self.beta
-
-
-class PixelNorm(Layer):
-    """ L2 pixel-normalization layer.
-    """
-    def __init__(self, epsilon=1e-10, **kwargs):
-        super(PixelNorm, self).__init__(**kwargs)
-        self.epsilon = epsilon
-
-    def call(self, inputs, training=None):
-        norm_factor = tf.math.sqrt(tf.reduce_sum(tf.square(inputs), axis=-1, keepdims=True) + self.epsilon)
-
-        return inputs / norm_factor
+        if self.affine:
+            return self.gamma * x + self.beta
+        return x
 
 
 class AntialiasSampling(tf.keras.layers.Layer):
@@ -121,7 +101,7 @@ class AntialiasSampling(tf.keras.layers.Layer):
 
 
 class ConvBlock(Layer):
-    """ ConBlock layer that consists of Conv2D + Normalization + Activation.
+    """ ConBlock layer consists of Conv2D + Normalization + Activation.
     """
     def __init__(self,
                  filters,
@@ -146,10 +126,46 @@ class ConvBlock(Layer):
         elif norm_layer == 'instance':
             self.normalization = InstanceNorm(affine=False)
         else:
-            self.normalization = Lambda(lambda x: tf.identity(x))
+            self.normalization = tf.identity
 
     def call(self, inputs, training=None):
         x = self.conv2d(inputs)
+        x = self.normalization(x)
+        x = self.activation(x)
+
+        return x
+
+
+class ConvTransposeBlock(Layer):
+    """ ConvTransposeBlock layer consists of Conv2DTranspose + Normalization + Activation.
+    """
+    def __init__(self,
+                 filters,
+                 kernel_size,
+                 strides=(1,1),
+                 padding='valid',
+                 use_bias=True,
+                 norm_layer=None,
+                 activation='linear',
+                 **kwargs):
+        super(ConvTransposeBlock, self).__init__(**kwargs)
+        initializer = tf.random_normal_initializer(0., 0.02)
+        self.convT2d = Conv2DTranspose(filters,
+                                       kernel_size,
+                                       strides,
+                                       padding,
+                                       use_bias=use_bias,
+                                       kernel_initializer=initializer)
+        self.activation = Activation(activation)
+        if norm_layer == 'batch':
+            self.normalization = BatchNormalization()
+        elif norm_layer == 'instance':
+            self.normalization = InstanceNorm(affine=False)
+        else:
+            self.normalization = tf.identity
+
+    def call(self, inputs, training=None):
+        x = self.convT2d(inputs)
         x = self.normalization(x)
         x = self.activation(x)
 
