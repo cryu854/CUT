@@ -51,7 +51,7 @@ class PatchNCELoss:
         feat_source = netE(source, training=True)
         feat_target = netE(target, training=True)
 
-        feat_source_pool, sample_ids = netF(feat_source, training=True)
+        feat_source_pool, sample_ids = netF(feat_source, patch_ids=None, training=True)
         feat_target_pool, _ = netF(feat_target, patch_ids=sample_ids, training=True)
 
         total_nce_loss = 0.0

@@ -70,17 +70,17 @@ class InstanceNorm(tf.keras.layers.Layer):
         return self.gamma * x + self.beta
 
 
-class L2Normalize(Layer):
-    """ L2 Normalization layer.
+class PixelNorm(Layer):
+    """ L2 pixel-normalization layer.
     """
     def __init__(self, epsilon=1e-10, **kwargs):
-        super(L2Normalize, self).__init__(**kwargs)
+        super(PixelNorm, self).__init__(**kwargs)
         self.epsilon = epsilon
 
     def call(self, inputs, training=None):
-        norm_factor = tf.math.sqrt(tf.reduce_sum(inputs**2, axis=1, keepdims=True))
-        
-        return inputs / (norm_factor + self.epsilon)
+        norm_factor = tf.math.sqrt(tf.reduce_sum(tf.square(inputs), axis=-1, keepdims=True) + self.epsilon)
+
+        return inputs / norm_factor
 
 
 class AntialiasSampling(tf.keras.layers.Layer):

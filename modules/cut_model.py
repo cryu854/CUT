@@ -11,7 +11,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense
 
-from modules.layers import ConvBlock, AntialiasSampling, ResBlock, Padding2D, L2Normalize
+from modules.layers import ConvBlock, AntialiasSampling, ResBlock, Padding2D, PixelNorm
 from modules.losses import GANLoss, PatchNCELoss
 
 
@@ -88,7 +88,6 @@ class PatchSampleMLP(Model):
         super(PatchSampleMLP, self).__init__(**kwargs)
         self.units = units
         self.num_patches = num_patches
-        self.l2norm = L2Normalize()
 
     def build(self, input_shape):
         initializer = tf.random_normal_initializer(0., 0.02)
@@ -97,6 +96,7 @@ class PatchSampleMLP(Model):
             mlp = tf.keras.models.Sequential([
                     Dense(self.units, activation="relu", kernel_initializer=initializer),
                     Dense(self.units, kernel_initializer=initializer),
+                    PixelNorm(),
                 ])
             setattr(self, f'mlp_{feat_id}', mlp)
 
@@ -112,12 +112,11 @@ class PatchSampleMLP(Model):
             if patch_ids is not None:
                 patch_id = patch_ids[feat_id]
             else:
-                patch_id = tf.random.shuffle(tf.range(H * W))[:self.num_patches]
+                patch_id = tf.random.shuffle(tf.range(H * W))[:min(self.num_patches, H * W)]
 
             x_sample = tf.reshape(tf.gather(feat_reshape, patch_id, axis=1), [-1, C])
             mlp = getattr(self, f'mlp_{feat_id}')
             x_sample = mlp(x_sample)
-            x_sample = self.l2norm(x_sample)
             samples.append(x_sample)
             ids.append(patch_id)
 
