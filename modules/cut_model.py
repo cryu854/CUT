@@ -9,13 +9,13 @@ CUT_model
 import tensorflow as tf
 
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, Lambda
 
-from modules.layers import ConvBlock, AntialiasSampling, ResBlock, Padding2D, PixelNorm
+from modules.layers import ConvBlock, ConvTransposeBlock, ResBlock, AntialiasSampling, Padding2D
 from modules.losses import GANLoss, PatchNCELoss
 
 
-def Generator(input_shape, output_shape, norm_layer, resnet_blocks, impl):
+def Generator(input_shape, output_shape, norm_layer, use_antialias, resnet_blocks, impl):
     """ Create a Resnet-based generator.
     Adapt from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style).
     For BatchNorm, we use learnable affine parameters and track running statistics (mean/stddev).
@@ -26,25 +26,35 @@ def Generator(input_shape, output_shape, norm_layer, resnet_blocks, impl):
     inputs = Input(shape=input_shape)
     x = Padding2D(3, pad_type='reflect')(inputs)
     x = ConvBlock(64, 7, padding='valid', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
-    x = ConvBlock(128, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
-    x = AntialiasSampling(4, mode='down', impl=impl)(x)
-    x = ConvBlock(256, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
-    x = AntialiasSampling(4, mode='down', impl=impl)(x)
+
+    if use_antialias:
+        x = ConvBlock(128, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+        x = AntialiasSampling(4, mode='down', impl=impl)(x)
+        x = ConvBlock(256, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+        x = AntialiasSampling(4, mode='down', impl=impl)(x)
+    else:
+        x = ConvBlock(128, 3, strides=2, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+        x = ConvBlock(256, 3, strides=2, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
 
     for _ in range(resnet_blocks):
         x = ResBlock(256, 3, use_bias, norm_layer)(x)
 
-    x = AntialiasSampling(4, mode='up', impl=impl)(x)
-    x = ConvBlock(128, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
-    x = AntialiasSampling(4, mode='up', impl=impl)(x)
-    x = ConvBlock(64, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+    if use_antialias:
+        x = AntialiasSampling(4, mode='up', impl=impl)(x)
+        x = ConvBlock(128, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+        x = AntialiasSampling(4, mode='up', impl=impl)(x)
+        x = ConvBlock(64, 3, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+    else:
+        x = ConvTransposeBlock(128, 3, strides=2, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+        x = ConvTransposeBlock(64, 3, strides=2, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation='relu')(x)
+
     x = Padding2D(3, pad_type='reflect')(x)
     outputs = ConvBlock(output_shape[-1], 7, padding='valid', activation='tanh')(x)
 
     return Model(inputs=inputs, outputs=outputs, name='generator')
 
 
-def Discriminator(input_shape, norm_layer, impl):
+def Discriminator(input_shape, norm_layer, use_antialias, impl):
     """ Create a PatchGAN discriminator.
     PatchGAN classifier described in the original pix2pix paper (https://arxiv.org/abs/1611.07004).
     Such a patch-level discriminator architecture has fewer parameters
@@ -54,12 +64,19 @@ def Discriminator(input_shape, norm_layer, impl):
     use_bias = (norm_layer == 'instance')
 
     inputs = Input(shape=input_shape)
-    x = ConvBlock(64, 4, padding='same', activation=tf.nn.leaky_relu)(inputs)
-    x = AntialiasSampling(4, mode='down', impl=impl)(x)
-    x = ConvBlock(128, 4, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
-    x = AntialiasSampling(4, mode='down', impl=impl)(x)
-    x = ConvBlock(256, 4, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
-    x = AntialiasSampling(4, mode='down', impl=impl)(x)
+
+    if use_antialias:
+        x = ConvBlock(64, 4, padding='same', activation=tf.nn.leaky_relu)(inputs)
+        x = AntialiasSampling(4, mode='down', impl=impl)(x)
+        x = ConvBlock(128, 4, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
+        x = AntialiasSampling(4, mode='down', impl=impl)(x)
+        x = ConvBlock(256, 4, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
+        x = AntialiasSampling(4, mode='down', impl=impl)(x)
+    else:
+        x = ConvBlock(64, 4, strides=2, padding='same', activation=tf.nn.leaky_relu)(inputs)
+        x = ConvBlock(128, 4, strides=2, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
+        x = ConvBlock(256, 4, strides=2, padding='same', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
+
     x = Padding2D(1, pad_type='constant')(x)
     x = ConvBlock(512, 4, padding='valid', use_bias=use_bias, norm_layer=norm_layer, activation=tf.nn.leaky_relu)(x)
     x = Padding2D(1, pad_type='constant')(x)
@@ -88,6 +105,7 @@ class PatchSampleMLP(Model):
         super(PatchSampleMLP, self).__init__(**kwargs)
         self.units = units
         self.num_patches = num_patches
+        self.l2_norm = Lambda(lambda x: x * tf.math.rsqrt(tf.reduce_sum(tf.square(x), axis=-1, keepdims=True) + 10-10))
 
     def build(self, input_shape):
         initializer = tf.random_normal_initializer(0., 0.02)
@@ -96,7 +114,6 @@ class PatchSampleMLP(Model):
             mlp = tf.keras.models.Sequential([
                     Dense(self.units, activation="relu", kernel_initializer=initializer),
                     Dense(self.units, kernel_initializer=initializer),
-                    PixelNorm(),
                 ])
             setattr(self, f'mlp_{feat_id}', mlp)
 
@@ -117,6 +134,7 @@ class PatchSampleMLP(Model):
             x_sample = tf.reshape(tf.gather(feat_reshape, patch_id, axis=1), [-1, C])
             mlp = getattr(self, f'mlp_{feat_id}')
             x_sample = mlp(x_sample)
+            x_sample = self.l2_norm(x_sample)
             samples.append(x_sample)
             ids.append(patch_id)
 
@@ -133,27 +151,29 @@ class CUT_model(Model):
                  source_shape,
                  target_shape,
                  cut_mode='cut',
+                 gan_mode='lsgan',
+                 use_antialias=True,
                  norm_layer='instance',
+                 resnet_blocks=9,
                  netF_units=256,
                  netF_num_patches=256,
-                 gan_mode='lsgan',
                  nce_temp=0.07,
                  nce_layers=[0,3,5,7,11],
                  impl='ref',
                  **kwargs):
         assert cut_mode in ['cut', 'fastcut']
-        assert norm_layer in ['batch', 'instance']
+        assert gan_mode in ['lsgan', 'nonsaturating']
+        assert norm_layer in [None, 'batch', 'instance']
         assert netF_units > 0
         assert netF_num_patches > 0
-        assert gan_mode in ['lsgan', 'nonsaturating']
         assert impl in ['ref', 'cuda']
         super(CUT_model, self).__init__(self, **kwargs)
 
         self.gan_mode = gan_mode
         self.nce_temp = nce_temp
         self.nce_layers = nce_layers
-        self.netG = Generator(source_shape, target_shape, norm_layer, resnet_blocks=9, impl=impl)
-        self.netD = Discriminator(target_shape, norm_layer, impl=impl)
+        self.netG = Generator(source_shape, target_shape, norm_layer, use_antialias, resnet_blocks, impl)
+        self.netD = Discriminator(target_shape, norm_layer, use_antialias, impl)
         self.netE = Encoder(self.netG, self.nce_layers)
         self.netF = PatchSampleMLP(netF_units, netF_num_patches)
 
