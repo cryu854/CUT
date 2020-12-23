@@ -18,7 +18,6 @@ def ArgParse():
     parser = argparse.ArgumentParser(description='CUT training usage.')
     # Training
     parser.add_argument('--mode', help="Model's mode be one of: 'cut', 'fastcut'", type=str, default='cut', choices=['cut', 'fastcut'])
-    parser.add_argument('--gan_mode', help='The type of GAN objective.', type=str, default='lsgan', choices=['lsgan', 'nonsaturating'])
     parser.add_argument('--epochs', help='Number of training epochs', type=int, default=400)
     parser.add_argument('--batch_size', help='Training batch size', type=int, default=1)
     parser.add_argument('--beta_1', help='First Momentum term of adam', type=float, default=0.5)
