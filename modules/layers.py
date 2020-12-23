@@ -84,7 +84,7 @@ class L2Normalize(Layer):
 
 
 class AntialiasSampling(tf.keras.layers.Layer):
-    """ Down/Up sampling layer with anti-alias.
+    """ Down/Up sampling layer with blur-kernel.
     """
     def __init__(self,
                  kernel_size,

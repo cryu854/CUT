@@ -89,7 +89,7 @@ def main(args):
         initial_epoch = 0
         print("Initializing from scratch...")
 
-    # Define the folders to store output information
+    # Create folders to store the output information
     result_dir = f'{args.out_dir}/images'
     checkpoint_dir = f'{args.out_dir}/checkpoints'
     log_dir = f'{args.out_dir}/logs/{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}'
@@ -98,8 +98,9 @@ def main(args):
     plotter_callback = GANMonitor(cut.netG, test_dataset, result_dir)
 
     # Create checkpoint callback to save model's checkpoints every n epoch (default 5)
-    # Use period to save every n epochs, use save_freq to save every n batches
+    # "period" to save every n epochs, "save_freq" to save every n batches
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_dir+'/{epoch:03d}', period=args.save_n_epoch, verbose=1)
+
     # Create tensorboard callback to log losses every epoch
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
 
