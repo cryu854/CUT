@@ -57,7 +57,7 @@ You will need the following to run the above:
 - If you want to use custom TensorFlow ops:
   - Please refer to the Requirements section of [stylegan2 project](https://github.com/NVlabs/stylegan2).
 
-## Attributions/Thanks
+## Acknowledgements
 - The code is developed based on [official-pytorch-implementation](https://github.com/taesungp/contrastive-unpaired-translation) and [Keras-CycleGAN](https://keras.io/examples/generative/cyclegan/).
 - The training datasets are from [taesung_park/CycleGAN/datasets](https://people.eecs.berkeley.edu/~taesung_park/CycleGAN/datasets/).
 - The cuda implementations are from [stylegan2 project](https://github.com/NVlabs/stylegan2).
